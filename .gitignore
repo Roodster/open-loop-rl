@@ -2,3 +2,5 @@
 /logs
 /.venv
 /gym_env
+src/__pycache__/
+**/__pycache__/**

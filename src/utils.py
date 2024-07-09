@@ -18,6 +18,7 @@ def set_seed(seed):
     th.cuda.manual_seed_all(seed)
     th.backends.cudnn.benchmark = False
     th.backends.cudnn.deterministic = True
+    th.Generator().manual_seed(seed)
 
 def load_config(config_file=None):
     assert config_file is not None, "Error: config file not found."
@@ -32,3 +33,6 @@ def parse_args(args_file="./data/configs/default.json"):
 
 def now():
     return datetime.now()
+
+def min_max_normalize(series):
+    return (series - min(series)) / (max(series) - min(series))

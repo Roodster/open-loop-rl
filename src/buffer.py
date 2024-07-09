@@ -15,7 +15,7 @@ class TrajectoryBufferBatch(NamedTuple):
     observations: th.Tensor
     actions: th.Tensor
     next_observations: th.Tensor
-    dones: th.Tensor
+    terminated: th.Tensor
     rewards: th.Tensor
 
 class Episode:
@@ -28,18 +28,18 @@ class Episode:
             'states': [],
             'actions': [],
             'rewards': [],
-            'dones': []
+            'terminated': []
     }
         
-    def add(self, state, action, reward, done):
+    def add(self, state, action, reward, terminated):
         """
             Add step to episode in progress for trajectory buffer. An episode is only added to the replay buffer when it is completed.
         """
     
-        self.data['states'].append(state)
-        self.data['actions'].append(action)
-        self.data['rewards'].append(reward)
-        self.data['dones'].append(done)      
+        self.data['states'].append([state])
+        self.data['actions'].append([action])
+        self.data['rewards'].append([reward])
+        self.data['terminated'].append([terminated])      
         
 
     def get_episode_and_reset(self):
@@ -54,9 +54,7 @@ class TrajectoryBuffer():
     Replay buffer that samples trajectories instead of single state action pairs.
 
     :param buffer_size: Max number of element in the buffer
-    :param observation_space: Observation space of a single environment
     :param action_space: Action space of a single environment
-    :param max_episode_length
     :param device: PyTorch device
     :param n_envs: Number of parallel environments
     :param trajectory_length: Number of timesteps included in each data point sampled from the buffer i.e. length of the trajectory
@@ -66,67 +64,55 @@ class TrajectoryBuffer():
     actions: np.ndarray
     rewards: np.ndarray
     episode_starts: np.ndarray
-    dones: np.ndarray
+    terminated: np.ndarray
     values: np.ndarray
 
     def __init__(
             self,
-            buffer_size: int,
-            observation_space: spaces.Space,
-            action_space: spaces.Space,
-            batch_size,
-            use_last_episode,
-            max_episode_length: int,
-            device: Union[th.device, str] = "auto",
-            n_envs: int = 1,
-            trajectory_length=10
-    ):
+            args
+        ):
         self.lock = threading.Lock()
-        self.buffer_size = buffer_size
-        self.observation_space = observation_space
-        self.action_space = action_space
-        self.obs_shape = observation_space.shape # type: ignore[assignment]
-
-        self.action_dim = int(np.prod(action_space.shape))
-        self.pos = 0
-        self.full = False
-        self.device = device
-        self.n_envs = n_envs
+        
+        self.obs_space = args.observation_space.shape[0]
+        self.action_space = int(np.prod(args.action_space.shape))
+        self.buffer_size = args.buffer_size
+        self.device = args.device
+        self.n_envs = args.n_envs
         self.actual_episode_lengths = None
-        self.max_episode_length = max_episode_length
-        self.trajectory_length = trajectory_length
+        self.trajectory_length = args.trajectory_length
         # we add trajectory_length to the max_episode_length to make sure that the episode has enough steps at the end
         # such that agent can also learn from when it is at the end of the maze
-        self.padded_episode_length = max_episode_length + trajectory_length
-        self.batch_size = batch_size
-        self.use_last_episode = use_last_episode
+        self.padded_episode_length = args.max_episode_length + args.trajectory_length
+        self.batch_size = args.batch_size
+        self.use_last_episode = args.use_last_episode
+        self.pos = 0
+        self.full = False
         self.reset()
         
 
     def reset(self) -> None:
         """
         Resets the buffer arrays to zero:
-            - observations, actions, rewards, episode starts, values, dones, episode length
+            - observations, actions, rewards, episode starts, values, terminated, episode length
         For the buffer to later store and access o, a, r, v.. for each episode, across all environments, and for each timestep within those episodes
         """
 
         # (buffer_size=1000, episode_dim=210, n_envs=1, obs_shape=84, obs_shape=84, obs_shape=3)
         # obs_shape of individual observation = (84, 84, 3)
-        self.observations = np.zeros((self.buffer_size, self.padded_episode_length, self.n_envs, *self.obs_shape), dtype=np.float32)
-        self.actions = np.zeros((self.buffer_size, self.padded_episode_length, self.n_envs, self.action_dim), dtype=np.float32)
+        self.observations = np.zeros((self.buffer_size, self.padded_episode_length, self.n_envs, self.obs_space), dtype=np.float32)
+        self.actions = np.zeros((self.buffer_size, self.padded_episode_length, self.n_envs, self.action_space), dtype=np.float32)
         self.rewards = np.zeros((self.buffer_size, self.padded_episode_length, self.n_envs), dtype=np.float32)
-        self.dones = np.zeros((self.buffer_size, self.padded_episode_length, self.n_envs), dtype=np.float32)
+        self.terminated = np.zeros((self.buffer_size, self.padded_episode_length, self.n_envs), dtype=np.float32)
         self.actual_episode_lengths = np.zeros((self.buffer_size, self.n_envs), dtype=np.int64)
         self.pos = 0
         self.full = False
-        
         
     def add(
             self,
             obs: np.ndarray,
             action: np.ndarray,
             reward: np.ndarray,
-            dones: np.ndarray,
+            terminated: np.ndarray,
     ) -> None:
         """
         Adds a new trajectory to the buffer, padding each component to the padded_episode_length.
@@ -142,6 +128,7 @@ class TrajectoryBuffer():
             value: non-padded value array
 
         """
+        
         # self.pos = current position in the buffer where the episode will be stored
         self.lock.acquire()
         try:
@@ -149,10 +136,10 @@ class TrajectoryBuffer():
             self.actions[self.pos] = self._pad_array_to_length(np.array(action).copy(), self.padded_episode_length)
             self.rewards[self.pos] = self._pad_array_to_length(np.array(reward).copy(), self.padded_episode_length)
 
-            self.dones[self.pos] = np.zeros_like(self._pad_array_to_length(np.array(reward).copy(), self.padded_episode_length))
-            # Handles the padded area: the padded part should be marked as terminal states (dones)
-            # select the part of the dones corresponding to the padding region (from the end of the episode = obs.shape[0] to the total padded length).
-            self.dones[self.pos, obs.shape[0]:] += 1
+            self.terminated[self.pos] = np.zeros_like(self._pad_array_to_length(np.array(reward).copy(), self.padded_episode_length))
+            # Handles the padded area: the padded part should be marked as terminal states (terminated)
+            # select the part of the terminated corresponding to the padding region (from the end of the episode = obs.shape[0] to the total padded length).
+            self.terminated[self.pos, obs.shape[0]:] += 1
 
             self.actual_episode_lengths[self.pos] = obs.shape[0]
 
@@ -173,17 +160,16 @@ class TrajectoryBuffer():
             Args:
                 episode: the episode that we want to add to our trajectory buffer.
         """
-
         obs = th.tensor(np.array(episode['states']))
         action = th.tensor(np.array(episode['actions']))
         action = action.view(*action.shape, 1)
         reward = th.tensor(np.array(episode['rewards']))
-        dones = th.tensor(np.array(episode['dones']))
+        terminated = th.tensor(np.array(episode['terminated']))
         # start = th.tensor(np.array(episode['episode_start']))
         # start = start.view(*start.shape, 1)
         # value = th.tensor(episode['value'])
         # value = value.view(*value.shape, 1)
-        self.add(obs, action, reward, dones)
+        self.add(obs, action, reward, terminated)
         
 
     def sample_trajectories(
@@ -223,7 +209,7 @@ class TrajectoryBuffer():
         actions = []
         rewards = []
         next_observations = []
-        dones = []
+        terminated = []
 
         # Generate indices for the selected episodes and environments
         env_indices = np.random.randint(0, self.n_envs, size=(len(selected_episodes),))
@@ -238,19 +224,19 @@ class TrajectoryBuffer():
         env_indices = env_indices[:, None]  # Shape: (batch_size, 1)
         traj_indices = traj_start[:, None] + traj_range  # Shape: (batch_size, trajectory_length)
 
-        # Gather observations, actions, rewards, and dones using advanced indexing
+        # Gather observations, actions, rewards, and terminated using advanced indexing
         observations = self.observations[batch_indices, traj_indices, env_indices]
         next_observations = self.observations[batch_indices, traj_indices + 1, env_indices]
         actions = self.actions[batch_indices, traj_indices, env_indices, :]
         rewards = self.rewards[batch_indices, traj_indices, env_indices]
-        dones = self.dones[batch_indices, traj_indices, env_indices]
+        terminated = self.terminated[batch_indices, traj_indices, env_indices]
 
         # Wrap up all the data for the trajectory
         data = (
             np.array(observations),
             np.array(actions),
             np.array(next_observations),
-            np.expand_dims(np.array(dones), -1),
+            np.expand_dims(np.array(terminated), -1),
             np.expand_dims(np.array(rewards), -1),
         )
 
