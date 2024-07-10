@@ -36,3 +36,13 @@ def now():
 
 def min_max_normalize(series):
     return (series - min(series)) / (max(series) - min(series))
+
+
+def count_consecutive_equal_vectorized(arr1, arr2):
+    min_length = min(len(arr1), len(arr2))
+    equal_mask = (arr1[:min_length] == arr2[:min_length])
+    
+    if not np.any(equal_mask):
+        return 0
+    
+    return np.argmin(equal_mask) if np.any(~equal_mask) else min_length

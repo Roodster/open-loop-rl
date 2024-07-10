@@ -22,7 +22,13 @@ def main(args):
     
     env = make_environment(maze_id=args.maze_id, 
                                  seed=args.seed, 
-                                 max_steps=args.max_episode_length,
+                                 max_steps=args.train_max_episode_length,
+                                 mask_regions=None,
+                                 mask_idxs=None
+                           )
+    env_eval = make_environment(maze_id=args.maze_id, 
+                                 seed=args.seed, 
+                                 max_steps=args.train_max_episode_length,
                                  mask_regions=None,
                                  mask_idxs=None
                            )
@@ -35,6 +41,8 @@ def main(args):
     controller = EpsilonGreedyController(model=model, env=env, args=args)
     learner = LearnerSoftTarget(model=model, args=args)
     runner = Runner(env=env, controller=controller, replay_buffer=trajectory_buffer, args=args)
+    runner_eval = Runner(env=env_eval, controller=controller, replay_buffer=trajectory_buffer, args=args)
+
     writer = Writer(args=args)
     solver = AstarSolver(env=env, goal=env.goal_states)
     
@@ -42,6 +50,7 @@ def main(args):
     experiment = Experiment(args=args,
                             controller=controller,
                             runner=runner,
+                            runner_eval=runner_eval,
                             learner=learner,
                             solver=solver,
                             writer=writer

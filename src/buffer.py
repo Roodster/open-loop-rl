@@ -82,7 +82,7 @@ class TrajectoryBuffer():
         self.trajectory_length = args.trajectory_length
         # we add trajectory_length to the max_episode_length to make sure that the episode has enough steps at the end
         # such that agent can also learn from when it is at the end of the maze
-        self.padded_episode_length = args.max_episode_length + args.trajectory_length
+        self.padded_episode_length = args.train_max_episode_length + args.trajectory_length
         self.batch_size = args.batch_size
         self.use_last_episode = args.use_last_episode
         self.pos = 0

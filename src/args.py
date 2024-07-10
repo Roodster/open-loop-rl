@@ -25,7 +25,6 @@ class Args():
         
         # ===== EXPERIMENT =====
         self.seed = self.config.get("seed", 1)
-        self.max_episode_length = self.config.get('max_episode_length', 150)
         
 
         # ===== EXPLORATION =====
@@ -36,10 +35,7 @@ class Args():
         
         # ===== ENVIRONMENT ==== 
         self.maze_id =  self.config.get("maze_id", 1)
-        self.n_envs = self.config.get("n_envs", 1)
-        
-        
-        
+        self.n_envs = self.config.get("n_envs", 1)    
         
         # ===== TRAJECTORY BUFFER =====
         self.buffer_size = self.config.get('buffer_size', 1000)
@@ -48,6 +44,7 @@ class Args():
         self.trajectory_length  = self.config.get('trajectory_length', 5)
         
         # ===== LEARNING ===== 
+        self.train_max_episode_length = self.config.get('train_max_episode_length', 150)
         self.train_n_episodes = self.config.get('train_n_episodes', 100)
         self.train_n_environmental_steps = self.config.get('train_n_environmental_steps', 50000)
         self.train_open_loop_probability = self.config.get('train_open_loop_probability', 0.0)

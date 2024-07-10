@@ -43,6 +43,7 @@ class Info:
             self._episode_losses_rew = []
             self._episode_losses_val = []
             self._env_steps = []
+            self._episode_optimal_steps_count = []
     
     def _parse_file(self, file):
         pass
@@ -60,6 +61,9 @@ class Info:
             info['losses'] = self._episode_losses
             info['loss_rew'] = self._episode_losses_rew
             info['loss_val'] = self._episode_losses_val
+            
+        if len(self._episode_optimal_steps_count) > 0:
+            info['optimal_steps'] = self._episode_optimal_steps_count
             
         return pd.DataFrame(info)
         
@@ -117,3 +121,11 @@ class Info:
     @episode_losses_val.setter
     def episode_losses_val(self, value):
         self._episode_losses_val.append(value)
+
+    @property
+    def episode_optimal_steps_count(self):
+        return np.array(self._episode_optimal_steps_count)
+
+    @episode_optimal_steps_count.setter
+    def episode_optimal_steps_count(self, value):
+        self._episode_optimal_steps_count.append(value)

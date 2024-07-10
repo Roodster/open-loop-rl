@@ -73,7 +73,7 @@ class EpsilonGreedyController(Controller):
         
         return epsilon
                 
-    def exploit(self, observations, increase_counter=True):
+    def exploit(self, observations):
         
   
         actions = th.tensor(np.arange(0, self.num_actions)).unsqueeze(1)
@@ -98,7 +98,7 @@ class EpsilonGreedyController(Controller):
             else:
                 actions = np.random.choice(self.env.get_all_explore_actions())
         else:
-            actions = self.exploit(observations=observations, increase_counter=False)
+            actions = self.exploit(observations=observations)
             
         return actions
     
@@ -110,7 +110,7 @@ class EpsilonGreedyController(Controller):
             actions = np.random.choice(self.env.get_valid_explore_actions())
 
         else:
-            actions = self.exploit(observations=observations, increase_counter=False)
+            actions = self.exploit(observations=observations)
             
         return actions
                 
@@ -120,11 +120,11 @@ class EpsilonGreedyController(Controller):
         if np.random.rand() < eps:
             actions = np.random.choice(self.env.get_all_explore_actions())
         else:
-            actions = self.exploit(observations=observations, increase_counter=False)
+            actions = self.exploit(observations=observations)
             
         return actions    
             
-    def choose(self, observations, explore_type='mixed',  increase_counter=True):
+    def choose(self, observations, explore_type='mixed',  increase_counter=False):
         
         if increase_counter: 
             self.num_decisions += 1

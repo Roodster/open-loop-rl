@@ -17,7 +17,7 @@ class BaseRunner:
         
         # ===== VARIABLES ====
         self.state = self.env.reset()[0]
-        self.max_episode_length = args.max_episode_length
+        self.max_episode_length = args.train_max_episode_length
         self.eval_max_episode_length = args.eval_max_episode_length
         
         # ===== STATISTICS =====
@@ -50,7 +50,7 @@ class Runner(BaseRunner):
                          )
         self.plot_animation = args.plot_animation
         
-    def _next_state(self, terminated, next_state):
+    def next_state(self, terminated, next_state):
         self.time = 0 if terminated else self.time + 1
         self.total_num_steps += 1
         if terminated:
@@ -59,7 +59,7 @@ class Runner(BaseRunner):
         else:
             self.state = next_state
     
-    def _run_step(self, action):
+    def run_step(self, action):
         """ Make a step in the environment (and update internal bookeeping) """
         next_state, reward, terminated, truncated, info = self.env.step(action=action)
         self.sum_rewards += reward
