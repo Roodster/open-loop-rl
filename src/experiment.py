@@ -249,8 +249,8 @@ class Experiment(BaseExperiment):
         # Plot the losses in the left subplot
         plt.subplot(1, n_plots, 3)
         plt.title(label="Eval optimal steps")
-        plt.axhline(y=len(self.optimal_actions)-1, color=colors[2])
-        plt.step(env_steps, optimal_steps_count, colors[0])
+        plt.axhline(y=len(self.optimal_actions)-1, color=colors[0])
+        plt.step(env_steps, optimal_steps_count, colors[2])
         plt.xlabel('environment steps')
         plt.ylabel('steps')
         # # Plot the episode lengths in the middle subplot

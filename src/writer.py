@@ -90,7 +90,11 @@ class Writer():
 
         hyperparams_path = self.train_dir + filepath
         with open(hyperparams_path, 'w') as f:
-            yaml.dump(hyperparameters.__dict__, f)
+            json.dump(hyperparameters.__dict__,
+                      f,
+                      indent=4,
+                      sort_keys=True,
+                      default=str)
             
     def save_info(self, info, name=''):
         

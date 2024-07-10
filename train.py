@@ -57,7 +57,6 @@ def main(args):
                             )
     
     # ========== RUN EXPERIMENT ==========
-    # Re-executing this code-block picks up the experiment where you left off
     try:
         experiment.run()
     except KeyboardInterrupt:
@@ -75,7 +74,7 @@ def main(args):
     
         
 if __name__ == "__main__":
-    args = Args(file="./data/configs/default_lstm.yaml")
+    args = Args(file="./data/configs/default_mha.yaml")
 
     main(args=args)
 

@@ -74,3 +74,6 @@ class Args():
         self.action_space = env.action_space
         self.n_actions = env.action_space.n
         self.observation_space = env.observation_space
+    
+    def default(self):
+        return self.__dict__
