@@ -28,7 +28,7 @@ def main(args):
                            )
     env_eval = make_environment(maze_id=args.maze_id, 
                                  seed=args.seed, 
-                                 max_steps=args.train_max_episode_length,
+                                 max_steps=args.eval_max_episode_length,
                                  mask_regions=None,
                                  mask_idxs=None
                            )

@@ -48,6 +48,7 @@ class Args():
         self.train_n_episodes = self.config.get('train_n_episodes', 100)
         self.train_n_environmental_steps = self.config.get('train_n_environmental_steps', 50000)
         self.train_open_loop_probability = self.config.get('train_open_loop_probability', 0.0)
+        self.train_learning_starts = self.config.get('train_learning_starts', 1000)
         self.gamma = self.config.get('gamma', 0.99)
         self.learning_rate = self.config.get('learning_rate', 1e-2)
         self.target_model = self.config.get('target_model', True)

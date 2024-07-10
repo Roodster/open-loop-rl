@@ -50,12 +50,12 @@ class Runner(BaseRunner):
                          )
         self.plot_animation = args.plot_animation
         
-    def next_state(self, terminated, next_state):
+    def next_state(self, terminated, next_state, reset_mode='initial'):
         self.time = 0 if terminated else self.time + 1
         self.total_num_steps += 1
         if terminated:
             self.sum_rewards = 0
-            self.state, _ = self.env.reset()
+            self.state, _ = self.env.reset(options=reset_mode)
         else:
             self.state = next_state
     

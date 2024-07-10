@@ -46,7 +46,7 @@ class Experiment(BaseExperiment):
         self.train_max_episode_length = args.train_max_episode_length
         self.grad_updates = args.grad_updates
         self.train_frequency = args.train_frequency
-        self.initial_collection_steps = 128
+        self.initial_collection_steps = args.train_learning_starts
         
         # ==== EVAL VARIABLES =====
         self.eval_n_episodes = args.eval_n_episodes
@@ -100,7 +100,7 @@ class Experiment(BaseExperiment):
         for step in range(1, self.initial_collection_steps + 1):
  
             # choose an action
-            action = self.controller.choose(observations=self.runner.state, explore_type='all')
+            action = self.controller.choose(observations=self.runner.state, explore_type='mixed')
             # take a step
             next_state, reward, terminated, truncated, info = self.runner.run_step(action=action)
             
@@ -113,7 +113,6 @@ class Experiment(BaseExperiment):
                         )
             
             if step == self.initial_collection_steps: terminated = True
-            
             
             # if last step add episode to trajectory buffer and reset episode
             if terminated:
@@ -136,6 +135,8 @@ class Experiment(BaseExperiment):
             next_state, reward, terminated, truncated, info = self.runner.run_step(action=action)
 
             # add info to episode
+            
+            # print(f'{np.argwhere(next_state.reshape(9,9) == 1)} {reward} {terminated, truncated, info}')
             episode.add(state=self.runner.state,
                         action=action,
                         reward=reward,
@@ -168,12 +169,11 @@ class Experiment(BaseExperiment):
                     self.eval_info.episode_optimal_steps_count = n_optimal_steps
 
                     
-                    pbar.set_description(f'loss={loss} loss_rew={loss_rew}, loss_val={loss_val} optimal_steps={n_optimal_steps}')
+                    # pbar.set_description(f'loss={loss} loss_rew={loss_rew}, loss_val={loss_val} optimal_steps={n_optimal_steps}')
                     if self.plot_info:
                         self.plot()
                                         
             self.runner.next_state(terminated=terminated, next_state=next_state)
-
 
     def evaluate(self):
         
@@ -205,7 +205,7 @@ class Experiment(BaseExperiment):
             or use "update=False" if this is the final call (otherwise there will be double plotting). """
         # Smooth curves
 
-        window = max(int(len(self.train_info.env_steps) / 50), 10)
+        window = max(int(len(self.train_info.env_steps) / 50), 1)
         
 
         if len(self.train_info.env_steps) < window + 2: return
@@ -219,7 +219,7 @@ class Experiment(BaseExperiment):
 
         # Determine x-axis based on samples or episodes
         # Create plot
-        colors = ['b', 'g', 'r']
+        colors = ['r', 'g', 'b']
 
 
         n_plots = 3
@@ -230,7 +230,7 @@ class Experiment(BaseExperiment):
         # Plot the losses in the left subplot
         plt.subplot(1, n_plots, 1)
         plt.title(label="Train Reward ")
-        plt.step(env_steps, rewards, colors[0])
+        plt.plot(env_steps, rewards, colors[2])
         plt.xlabel('environment steps')
         plt.ylabel('reward')
         # ax.plot(env_steps, lengths, colors[0])
@@ -239,16 +239,17 @@ class Experiment(BaseExperiment):
         # # Plot the losses in the right subplot
         ax = plt.subplot(1, n_plots, 2)
         plt.title(label="Train loss")
-        ax.plot(env_steps, losses, colors[0])
-        ax.plot(env_steps, losses_rew, colors[0])
-        ax.plot(env_steps, losses_val, colors[0])
-
+        ax.plot(env_steps, losses, colors[2], label='loss')
+        ax.plot(env_steps, losses_rew, colors[1], label='loss_rew')
+        ax.plot(env_steps, losses_val, colors[0], label='loss_val')
+        ax.legend()
         ax.set_xlabel('environment steps')
         ax.set_ylabel('loss')
 
         # Plot the losses in the left subplot
         plt.subplot(1, n_plots, 3)
         plt.title(label="Eval optimal steps")
+        plt.axhline(y=len(self.optimal_actions)-1, color=colors[2])
         plt.step(env_steps, optimal_steps_count, colors[0])
         plt.xlabel('environment steps')
         plt.ylabel('steps')

@@ -124,7 +124,7 @@ class EpsilonGreedyController(Controller):
             
         return actions    
             
-    def choose(self, observations, explore_type='mixed',  increase_counter=False):
+    def choose(self, observations, explore_type='all',  increase_counter=False):
         
         if increase_counter: 
             self.num_decisions += 1
