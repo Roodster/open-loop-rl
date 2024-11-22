@@ -51,19 +51,35 @@ class Info:
     def get(self):
         
         
-        info = {
-            'rewards': self._episode_rewards,
-            'lengths': self._episode_lengths,
-            'steps': self._env_steps
-        }
+        info = {}
         
+        print('len(self._episode_rewards)', len(self._episode_rewards))
+        if len(self._episode_rewards) > 0:
+            info['rewards'] = self._episode_rewards,
+        
+        print('len(self._episode_lengths)', len(self._episode_lengths))
+        if len(self._episode_lengths) > 0:
+            info['lengths'] = self._episode_lengths,
+        
+        
+        print('len(self._env_steps)', len(self._env_steps))
+        if len(self._env_steps) > 0:
+            info['steps'] = self._env_steps        
+
+
+        print('len(self._episode_losses)', len(self._episode_losses))
+        print('len(self._episode_losses_rew)', len(self._episode_losses_rew))
+        print('len(self._episode_losses_val)', len(self._episode_losses_val))
         if len(self._episode_losses) > 0:
             info['losses'] = self._episode_losses
             info['loss_rew'] = self._episode_losses_rew
             info['loss_val'] = self._episode_losses_val
-            
+
+        print('len(self._episode_optimal_steps_count)', len(self._episode_optimal_steps_count))
         if len(self._episode_optimal_steps_count) > 0:
             info['optimal_steps'] = self._episode_optimal_steps_count
+            
+        print(info)
             
         return pd.DataFrame(info)
         

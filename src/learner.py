@@ -66,10 +66,12 @@ class Learner(BaseLearner):
             target_rewards, target_values = self.target_model(observations=reshaped_obs,
                                                             actions=possible_actions,
                                                             action_space=self.model.in_features)
-         
+           
             target_rewards = target_rewards.reshape(self.model.in_features,
                                                     self.batch_size,
                                                     self.trajectory_length)
+            
+            
             target_values = target_values.reshape(self.model.in_features,
                                                     self.batch_size,
                                                     self.trajectory_length)

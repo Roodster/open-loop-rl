@@ -45,7 +45,6 @@ class Args():
         
         # ===== LEARNING ===== 
         self.train_max_episode_length = self.config.get('train_max_episode_length', 150)
-        self.train_n_episodes = self.config.get('train_n_episodes', 100)
         self.train_n_environmental_steps = self.config.get('train_n_environmental_steps', 50000)
         self.train_open_loop_probability = self.config.get('train_open_loop_probability', 0.0)
         self.train_learning_starts = self.config.get('train_learning_starts', 1000)
@@ -61,7 +60,7 @@ class Args():
         
         # ===== EVALUATION =====
         self.eval_n_episodes = self.config.get('eval_n_episodes', 1)
-        self.eval_episodes_interval = self.config.get('eval_episodes_interval', 10)
+        self.eval_environment_steps_interval = self.config.get('eval_environment_steps_interval', 10)
         self.eval_mask_regions = self.config.get('eval_mask_regions', False)
         self.eval_mask_indices = self.config.get('eval_mask_indices', [])
         self.eval_max_episode_length = self.config.get('eval_max_episode_length', 100)

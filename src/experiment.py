@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np 
 from time import sleep
 
-from src.utils import now, set_seed, min_max_normalize, count_consecutive_equal_vectorized
+from src.utils import now, set_seed
 from src.info import Info
 from src.buffer import Episode
 
@@ -41,7 +41,6 @@ class Experiment(BaseExperiment):
         self.eval_info = Info()       
         
         # ===== TRAIN VARIABLES =====
-        self.train_n_episodes = args.train_n_episodes
         self.train_n_environmental_steps = args.train_n_environmental_steps
         self.train_max_episode_length = args.train_max_episode_length
         self.grad_updates = args.grad_updates
@@ -50,7 +49,7 @@ class Experiment(BaseExperiment):
         
         # ==== EVAL VARIABLES =====
         self.eval_n_episodes = args.eval_n_episodes
-        self.eval_episodes_interval = args.eval_episodes_interval
+        self.eval_environment_steps_interval = args.eval_environment_steps_interval
         self.eval_max_episode_length = args.eval_max_episode_length
         
         # ===== PLOT VARIABLES =====
@@ -64,7 +63,8 @@ class Experiment(BaseExperiment):
             self.optimal_actions = self.solver.get_actions()
             
         self.writer.save_hyperparameters(self.args)
-            
+        set_seed(args.seed)
+
 
     def close(self):
         """ Overrides Experiment.close(). """
@@ -104,7 +104,6 @@ class Experiment(BaseExperiment):
             # take a step
             next_state, reward, terminated, truncated, info = self.runner.run_step(action=action)
             
-            
             # add info to episode
             episode.add(state=self.runner.state,
                         action=action,
@@ -119,21 +118,20 @@ class Experiment(BaseExperiment):
                 data = episode.get_episode_and_reset()
                 self.runner.replay_buffer.add_episode(data)
                 
-            self.runner.next_state(terminated=terminated, next_state=next_state)
+            self.runner.set_next_state(terminated=terminated, next_state=next_state, action=action)
                     
         last_episode = 0
 
         for step in pbar:
 
            
-            # if self.plot_animation:
-            #     self.runner.env.render()
+            if self.plot_animation:
+                self.runner.env.render()
             
             # choose an action
-            action = self.controller.choose(observations=self.runner.state, explore_type='all', increase_counter=True)
+            action = self.controller.choose(observations=self.runner.state, prev_actions=self.runner.prev_actions, explore_type='all', increase_counter=True)
             # take a step
             next_state, reward, terminated, truncated, info = self.runner.run_step(action=action)
-
             # add info to episode
             
             # print(f'{np.argwhere(next_state.reshape(9,9) == 1)} {reward} {terminated, truncated, info}')
@@ -158,39 +156,61 @@ class Experiment(BaseExperiment):
                 
         
                 # every so often evaluate the model
-                if (step+1) % self.eval_episodes_interval == 0:
+                if (step+1) % self.eval_environment_steps_interval == 0:
+
+                    n_optimal_steps = self.evaluate()
+                    
                     self.train_info.env_steps = step
                     self.train_info.episode_losses = loss
                     self.train_info.episode_losses_rew = loss_rew
                     self.train_info.episode_losses_val = loss_val
                     self.train_info.episode_rewards = np.sum(data['rewards'])
-                    n_optimal_steps = self.evaluate()
                     self.eval_info.env_steps = step
                     self.eval_info.episode_optimal_steps_count = n_optimal_steps
 
+                    
+                    if (step+1) % self.save_model_frequency == 0 and n_optimal_steps == len(self.optimal_actions) - 1:
+                        self.writer.save_model(model=self.controller.parameters(), step=(step+1))
                     
                     # pbar.set_description(f'loss={loss} loss_rew={loss_rew}, loss_val={loss_val} optimal_steps={n_optimal_steps}')
                     if self.plot_info:
                         self.plot()
                                         
-            self.runner.next_state(terminated=terminated, next_state=next_state)
+            self.runner.set_next_state(terminated=terminated, next_state=next_state, action=action)
+        
+        # self.writer.save_info(self.train_info.get())
+        # self.writer.save_info(self.eval_info.get())
 
     def evaluate(self):
         
+        print('=========')
         for step in range(self.eval_max_episode_length):
 
             # choose an action
             if self.runner_eval.env is not None and self.plot_animation == True:
                 self.runner_eval.env.render()
-
-            action = self.controller.choose(observations=self.runner_eval.state, explore_type='exploit')
+            # print(f"Runner eval state=\n{self.runner_eval.state}")
+            action = self.controller.choose(observations=self.runner_eval.state,
+                                            prev_actions=self.runner_eval.prev_actions,
+                                            explore_type='exploit')
             
             next_state, reward, terminated, truncated, info = self.runner_eval.run_step(action=action)
             
+            print(f"next_state=\n{next_state}")
+            print(f"xxx_info=\n{info['last_observed_state']} ")
+                        
+            if info['masked']:
+                print("Current state is blinded")
+                next_state = info['last_observed_state']
+
             if self.optimal_actions[step] != action:
                 terminated = True
                 
-            self.runner_eval.next_state(terminated=terminated, next_state=next_state)
+            self.runner_eval.set_next_state(terminated=terminated, 
+                                            next_state=next_state, 
+                                            action=action,
+                                            is_masked=info['masked'],
+                                            mode='eval')
 
             if terminated == True:
                 break

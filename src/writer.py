@@ -55,10 +55,10 @@ class Writer():
 
         
     
-    def save_model(self, model, episode):
+    def save_model(self, model, step):
         
         _dir = os.path.join(self.model_dir)
-        file = f"/model_{self.datetime}_{self.args.exp_name}_{self.args.model}_{self.args.maze_id}_{self.args.trajectory_length}_{self.args.train_open_loop_probability}_{episode}.pickle"
+        file = f"/model_{self.datetime}_{self.args.exp_name}_{self.args.model}_{self.args.maze_id}_{self.args.trajectory_length}_{self.args.train_open_loop_probability}_{step}.pickle"
 
         full_path = _dir +file
         th.save(model.state_dict(), full_path)

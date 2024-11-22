@@ -44,8 +44,9 @@ class Controller(BaseController):
         
         return q_values
     
-    def choose(self, observations, actions):
+    def choose_action(self, observations, actions):
         q_values = self.extended_q_values(observations=observations, actions=actions)
+        # print(f'qvalues for {observations.shape, actions.shape} = {q_values} ')
         actions = th.argmax(q_values, dim=0).flatten().cpu().numpy()[0]
         return actions
         
@@ -82,7 +83,7 @@ class EpsilonGreedyController(Controller):
         actions = th.nn.functional.one_hot(actions, num_classes=self.num_actions).squeeze(1).float()
 
         observations = th.Tensor(observations)
-        actions = super().choose(observations=observations, actions=actions) 
+        actions = super().choose_action(observations=observations, actions=actions) 
         
         return actions
     
@@ -124,7 +125,7 @@ class EpsilonGreedyController(Controller):
             
         return actions    
             
-    def choose(self, observations, explore_type='all',  increase_counter=False):
+    def choose(self, observations, prev_actions=[], explore_type='all',  increase_counter=False):
         
         if increase_counter: 
             self.num_decisions += 1
@@ -141,4 +142,83 @@ class EpsilonGreedyController(Controller):
         
         return actions
         
+        
+        
+class OpenLoopController(EpsilonGreedyController):
+    def __init__(self, model, env, args):
+        super().__init__(model=model, env=env, args=args)
+
+    def exploit(self, observations, prev_actions=[]):
+        
+  
+        actions = th.tensor(np.arange(0, self.num_actions)).unsqueeze(1)
+        
+        if len(prev_actions) > 0:
+            repeated_taken = th.tensor(prev_actions).repeat(self.num_actions, 1)
+
+            actions = th.cat((repeated_taken, actions),
+                                            dim=1)  # shape: (num_actions, sequence_actions_length)
+        
+        actions = actions.unsqueeze(1)
+        
+        actions = th.nn.functional.one_hot(actions, num_classes=self.num_actions).squeeze(1).float()
+
+        observations = th.Tensor(observations)
+        actions = super().choose_action(observations=observations, actions=actions) 
+        
+        return actions
+
+    def mixed_exploration(self, observations, prev_actions=[]):
+        eps = self.epsilon()
+    
+        if np.random.rand() < eps:
+
+            p = max(0.3, eps**2)
+
+            if p > 0.5:
+                actions = np.random.choice(self.env.get_valid_explore_actions())
+            else:
+                actions = np.random.choice(self.env.get_all_explore_actions())
+        else:
+            actions = self.exploit(observations=observations, prev_actions=prev_actions)
+            
+        return actions
+    
+    def valid_exploration(self, observations, prev_actions):
+        eps = self.epsilon()
+    
+        if np.random.rand() < eps:
+
+            actions = np.random.choice(self.env.get_valid_explore_actions())
+
+        else:
+            actions = self.exploit(observations=observations, prev_actions=prev_actions)
+            
+        return actions
+                
+    def greedy_exploration(self, observations, prev_actions):
+        eps = self.epsilon()
+    
+        if np.random.rand() < eps:
+            actions = np.random.choice(self.env.get_all_explore_actions())
+        else:
+            actions = self.exploit(observations=observations, prev_actions=prev_actions)
+            
+        return actions    
+       
+    def choose(self, observations, prev_actions=[], explore_type='all',  increase_counter=False):
+        
+        if increase_counter: 
+            self.num_decisions += 1
+            
+        if explore_type == 'mixed':
+            actions = self.mixed_exploration(observations, prev_actions=prev_actions)
+        elif explore_type == 'valid':
+            actions = self.valid_exploration(observations, prev_actions=prev_actions)
+        elif explore_type == 'all':    
+            actions = self.greedy_exploration(observations, prev_actions=prev_actions)
+        else:
+            actions = self.exploit(observations, prev_actions=prev_actions)
+        
+        return actions
         

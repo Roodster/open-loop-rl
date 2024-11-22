@@ -13,7 +13,8 @@ class BaseRunner:
         self.env = env
         self.controller = controller
         self.replay_buffer = replay_buffer
-        
+        self.prev_actions = []
+
         
         # ===== VARIABLES ====
         self.state = self.env.reset()[0]
@@ -50,7 +51,7 @@ class Runner(BaseRunner):
                          )
         self.plot_animation = args.plot_animation
         
-    def next_state(self, terminated, next_state, reset_mode='initial'):
+    def set_next_state(self, terminated, next_state, is_masked=False, action=None,  mode='eval', reset_mode='initial'):
         self.time = 0 if terminated else self.time + 1
         self.total_num_steps += 1
         if terminated:
@@ -66,62 +67,61 @@ class Runner(BaseRunner):
         return next_state, reward, terminated, truncated, info  # reward, next state, terminal, done
     
     
-    def run(self, n_steps, mode='train', return_dict=None):
-        
-        self.controller.model.train() if mode == 'train' else self.controller.model.eval()
 
-        episode = Episode()    
-        episodes = []    
-        time, episode_lengths, episode_rewards = 0, [], []
-        
-        if mode == 'train':
-            max_episode_length = n_steps if n_steps > 0 else self.max_episode_length
-        else:
-            max_episode_length = self.eval_max_episode_length
-            
-        increase_counter = True if mode == 'train' else False
-            
-        for t in range(max_episode_length):
-
-            if self.plot_animation and mode != 'train':
-                self.env.render()
-                        
-            # Choose an action based on current state.
-            action = self.controller.choose(observations=self.state, explore_type='mixed', increase_counter=increase_counter)
-            next_state, reward, terminated, truncated, info = self._run_step(action=action)
+class OpenLoopRunner(Runner):
     
-            
-            episode.add(state=self.state,
-                        action=action,
-                        reward=reward,
-                        terminated=terminated)
-            
-            if t == (max_episode_length - 1): terminated = True
-
-
+    
+    def __init__(self, env, controller, replay_buffer, args=None):
+        assert args is not None, "CLASS: Runner. MESSAGE: No parameters to set values with."
+        super().__init__(env=env, 
+                         controller=controller,
+                         replay_buffer=replay_buffer,
+                         args=args
+                         )
+        self.open_loop_trajectory_probability = args.train_open_loop_probability
+        self.trajectory_length = args.trajectory_length
+        self.num_blind_steps = 0
+        self.total_open_steps = 0
+        self.total_closed_steps = 0
+        
+    def set_next_state(self, terminated, next_state, is_masked=False, action=None, mode='eval', reset_mode='initial'):
+        self.time = 0 if terminated else self.time + 1
+        self.total_num_steps += 1
+        if mode == 'default':
             if terminated:
-                data = episode.get_episode_and_reset()
-                episodes.append(data)
-                self.replay_buffer.add_episode(data)
-                episode_lengths.append(self.time + 1)
-                episode_rewards.append(self.sum_rewards)
+                self.sum_rewards = 0
+                self.prev_actions = []
+                self.state, _ = self.env.reset(options=reset_mode)
+            else:
+                if self.open_loop_trajectory_probability > 0.0:
+                    if self.num_blind_steps > 0:
+                        self.prev_actions.append(action)
+                        self.num_blind_steps -= 1
+                        self.total_open_steps += 1
+                    elif np.random.uniform(0, 1) < (self.open_loop_trajectory_probability * (1 / self.trajectory_length)):
+                        self.prev_actions.append(action)
+                        self.num_blind_steps = (self.trajectory_length - 1)
+                        self.total_open_steps += 1
+                    else:
+                        self.state = next_state
+                        self.prev_actions = []
+                        self.total_closed_steps += 1
+                else:
+                    self.state = next_state
+                
+        elif mode == 'eval':
             
-            self._next_state(terminated=terminated, next_state=next_state)
-
-            time += 1
             if terminated:
-                break
-        
-        return_dict = { 
-                'episodes': episodes,
-                'episode_reward': episode_rewards[0],
-                'episode_length': episode_lengths[0],
-                'env_steps': time}
-        
-        
-        return return_dict
-            
+                self.sum_rewards = 0
+                self.prev_actions = []
+                self.state, _ = self.env.reset(options=reset_mode)
+            else:
+                if self.open_loop_trajectory_probability > 0.0:
+                    if is_masked and action is not None:
+                        self.prev_actions.append(action)
+                        self.total_open_steps += 1
+                    else:
+                        self.prev_actions = []
+                        self.state = next_state
+                        self.total_closed_steps += 1
     
-    
-    def run_episode(self, mode='', return_dict=None):
-        return self.run(0, mode=mode, return_dict=return_dict)

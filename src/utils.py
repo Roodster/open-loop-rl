@@ -46,3 +46,9 @@ def count_consecutive_equal_vectorized(arr1, arr2):
         return 0
     
     return np.argmin(equal_mask) if np.any(~equal_mask) else min_length
+
+def get_mask_config_indices(min_val, max_val):
+    result = []
+    for i in range(min_val, max_val + 1):
+        result.append(list(range(min_val, i + 1)))
+    return result

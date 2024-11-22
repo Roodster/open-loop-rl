@@ -3,12 +3,12 @@ import torch as th
 
 from src.utils import set_seed
 from src.args import Args
-from src.controller import EpsilonGreedyController
+from src.controller import EpsilonGreedyController, OpenLoopController
 from src.writer import Writer
 from src.learner import LearnerSoftTarget
-from src.runner import Runner
+from src.runner import Runner, OpenLoopRunner
 from src.experiment import Experiment
-from src.model import get_model
+from src.models.model_manager import get_model
 from src.buffer import TrajectoryBuffer
 
 from gym_env.make_environment import make_environment
@@ -34,13 +34,12 @@ def main(args):
                            )
     
     args.set_env(env=env)
-    set_seed(1)
     
     model = get_model(args=args, env=env)
     trajectory_buffer = TrajectoryBuffer(args)
-    controller = EpsilonGreedyController(model=model, env=env, args=args)
+    controller = OpenLoopController(model=model, env=env, args=args)
     learner = LearnerSoftTarget(model=model, args=args)
-    runner = Runner(env=env, controller=controller, replay_buffer=trajectory_buffer, args=args)
+    runner = OpenLoopRunner(env=env, controller=controller, replay_buffer=trajectory_buffer, args=args)
     runner_eval = Runner(env=env_eval, controller=controller, replay_buffer=trajectory_buffer, args=args)
 
     writer = Writer(args=args)
@@ -69,7 +68,7 @@ def main(args):
     plt.clf()
     plt.plot(range(0, len(epsilons)), epsilons)
     writer.save_plots(plot=fig, attribute="epsilon_schedule")
-    # plt.show()
+    plt.show()
         
     
         
